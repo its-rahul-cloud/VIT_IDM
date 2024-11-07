@@ -15,7 +15,7 @@ from torch import autocast
 from contextlib import nullcontext
 import torchvision
 from typing import List
-sys.path[0] = "/content/TPD"
+sys.path[0] = "/content/VIT_IDM/VIT_IDM"
 print(sys.path)
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
