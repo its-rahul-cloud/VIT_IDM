@@ -15,7 +15,7 @@ from torch import autocast
 from contextlib import nullcontext
 import torchvision
 from typing import List
-sys.path[0] = "/content/VIT_IDM/VIT_IDM"
+sys.path[0] = "/content/VIT_IDM/VIT_IDM/"
 print(sys.path)
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -160,165 +160,63 @@ def blend(
 
 
 
+
+# Create the argument parser
+parser = argparse.ArgumentParser(
+    prog='inference.py',
+    description=None,  # You can add a description here if needed
+    formatter_class=argparse.HelpFormatter,
+    conflict_handler='error',
+    add_help=True
+)
+
+# Add arguments based on the Namespace you provided
+parser.add_argument('--outdir', type=str, default='/content/inference_logs/VITONHD/VITONHD_release_input_person_combine_garment_240epochs_paired/')
+parser.add_argument('--skip_grid', action='store_true', default=False)
+parser.add_argument('--skip_save', action='store_true', default=False)
+parser.add_argument('--ddim_steps', type=int, default=100)
+parser.add_argument('--plms', action='store_true', default=False)
+parser.add_argument('--fixed_code', action='store_true', default=False)
+parser.add_argument('--ddim_eta', type=float, default=0.0)
+parser.add_argument('--n_iter', type=int, default=2)
+parser.add_argument('--H', type=int, default=512)
+parser.add_argument('--W', type=int, default=768)
+parser.add_argument('--n_imgs', type=int, default=100)
+parser.add_argument('--C', type=int, default=5)
+parser.add_argument('--f', type=int, default=8)
+parser.add_argument('--n_samples', type=int, default=1)
+parser.add_argument('--n_rows', type=int, default=0)
+parser.add_argument('--scale', type=float, default=1)
+parser.add_argument('--config', type=str, default='/content/VIT_IDM/VIT_IDM/configs/inference/inference_VITONHD_paired.yaml')
+parser.add_argument('--ckpt', type=str, default='/content/TPD_240epochs.ckpt')
+parser.add_argument('--seed', type=int, default=321)
+parser.add_argument('--precision', type=str, default='autocast')
+parser.add_argument('--batch_size', type=int, default=4)
+parser.add_argument('--predicted_mask_dilation', type=int, default=0)
+
+# Parse the arguments
+opt = parser.parse_args()
+
+seed_everything(opt.seed)
+
+config = OmegaConf.load(f"{opt.config}")
+model = load_model_from_config(config, f"{opt.ckpt}")
+
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+model = model.to(device)
+
+
+if opt.plms:
+    sampler = PLMSSampler(model)
+else:
+    sampler = DDIMSampler(model)
+
 def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--outdir",
-        type=str,
-        nargs="?",
-        help="dir to write results to",
-        default="outputs/txt2img-samples"
-    )
-    parser.add_argument(
-        "--skip_grid",
-        action='store_true',
-        help="do not save a grid, only individual samples. Helpful when evaluating lots of samples",
-    )
-    parser.add_argument(
-        "--skip_save",
-        action='store_true',
-        help="do not save individual samples. For speed measurements.",
-    )
-    parser.add_argument(
-        "--ddim_steps",
-        type=int,
-        default=100,
-        help="number of ddim sampling steps",
-    )
-    parser.add_argument(
-        "--plms",
-        action='store_true',
-        help="use plms sampling",
-    )
-    parser.add_argument(
-        "--fixed_code",
-        action='store_true',
-        help="if enabled, uses the same starting code across samples ",
-    )
-    parser.add_argument(
-        "--ddim_eta",
-        type=float,
-        default=0.0,
-        help="ddim eta (eta=0.0 corresponds to deterministic sampling",
-    )
-    parser.add_argument(
-        "--n_iter",
-        type=int,
-        default=2,
-        help="sample this often",
-    )
-    parser.add_argument(
-        "--H",
-        type=int,
-        default=512,
-        help="image height, in pixel space",
-    )
-    parser.add_argument(
-        "--W",
-        type=int,
-        default=512,
-        help="image width, in pixel space",
-    )
-    parser.add_argument(
-        "--n_imgs",
-        type=int,
-        default=100,
-        help="image width, in pixel space",
-    )
-    parser.add_argument(
-        "--C",
-        type=int,
-        default=4,
-        help="latent channels",
-    )
-    parser.add_argument(
-        "--f",
-        type=int,
-        default=8,
-        help="downsampling factor",
-    )
-    parser.add_argument(
-        "--n_samples",
-        type=int,
-        default=1,
-        help="how many samples to produce for each given reference image. A.k.a. batch size",
-    )
-    parser.add_argument(
-        "--n_rows",
-        type=int,
-        default=0,
-        help="rows in the grid (default: n_samples)",
-    )
-    parser.add_argument(
-        "--scale",
-        type=float,
-        default=1,
-        help="unconditional guidance scale: eps = eps(x, empty) + scale * (eps(x, cond) - eps(x, empty))",
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="",
-        help="path to config which constructs model",
-    )
-    parser.add_argument(
-        "--ckpt",
-        type=str,
-        default="",
-        help="path to checkpoint of model",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="the seed (for reproducible sampling)",
-    )
-    parser.add_argument(
-        "--precision",
-        type=str,
-        help="evaluate at this precision",
-        choices=["full", "autocast"],
-        default="autocast"
-    )
-
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=5,
-        help="batch_size",
-    )
-
-    parser.add_argument(
-        "--predicted_mask_dilation",
-        type=int,
-        default=10,
-        help="predicted_mask_dilation",
-    )
-
-
-    opt = parser.parse_args()
-
-
-    seed_everything(opt.seed)
-
-    config = OmegaConf.load(f"{opt.config}")
-    model = load_model_from_config(config, f"{opt.ckpt}")
-
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    current_time = 'result'
 
     dataset = instantiate_from_config(config.data.params.test)
     loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
-    if opt.plms:
-        sampler = PLMSSampler(model)
-    else:
-        sampler = DDIMSampler(model)
-
-
-    current_time = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-    
     outpath = os.path.join(opt.outdir, current_time)
     os.makedirs(outpath, exist_ok=True)
 
@@ -614,7 +512,7 @@ def main():
                                 predicted_mask_before_dilate_numpy= cv2.cvtColor(predicted_mask_before_dilate_numpy,cv2.COLOR_GRAY2RGB)
                                 predicted_mask_before_dilate_img = Image.fromarray(predicted_mask_before_dilate_numpy.astype(np.uint8))
                                 predicted_mask_before_dilate_img.save(os.path.join(second_stage_middle_figure_path, image_name[i][:-4]+"_predicted_mask_before_dilate.jpg"))
-    
+
 
                                 predicted_mask_inpaint_numpy=255.*rearrange(un_norm(predicted_mask_inpaint_tensor[i]).cpu(), 'c h w -> h w c').cpu().numpy()
                                 predicted_mask_inpaint_img = Image.fromarray(predicted_mask_inpaint_numpy.astype(np.uint8))
@@ -630,7 +528,7 @@ def main():
                                 garment_mask_numpy= cv2.cvtColor(garment_mask_numpy,cv2.COLOR_GRAY2RGB)
                                 garment_mask_img = Image.fromarray(garment_mask_numpy.astype(np.uint8))
                                 garment_mask_img.save(os.path.join(second_stage_middle_figure_path, image_name[i][:-4]+"_garment_mask.jpg"))
-                 
+                  
 
                                 predicted_mask_unioned_inpaint_numpy=255.*rearrange(un_norm(predicted_mask_unioned_inpaint_tensor[i]).cpu(), 'c h w -> h w c').cpu().numpy()
                                 predicted_mask_unioned_inpaint_img = Image.fromarray(predicted_mask_unioned_inpaint_numpy.astype(np.uint8))
@@ -642,7 +540,7 @@ def main():
                                 predicted_mask_unioned_img.save(os.path.join(second_stage_middle_figure_path, image_name[i][:-4]+"_predicted_mask_unioned.jpg"))
                                 
                                 
-  
+
 
                                 posemap_numpy=255.*rearrange(un_norm(posemap[i]).cpu(), 'c h w -> h w c').cpu().numpy()
                                 posemap_img = Image.fromarray(posemap_numpy.astype(np.uint8))
@@ -656,6 +554,120 @@ def main():
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
           f" \nEnjoy.")
 
+import os
+from flask import Flask, request, send_file, jsonify, send_from_directory
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from pyngrok import ngrok
+import shutil
 
-if __name__ == "__main__":
+# Directories for body and cloth images
+body_image_dir = "/content/VIT_IDM/VIT_IDM/datasets/VITONHD/test/image"
+cloth_image_dir = "/content/VIT_IDM/VIT_IDM/datasets/VITONHD/test/cloth"
+result_dir = "/content/inference_logs/VITONHD/VITONHD_release_input_person_combine_garment_240epochs_paired/result"
+
+# Ensure directories exist
+# os.makedirs(body_image_dir, exist_ok=True)
+# os.makedirs(cloth_image_dir, exist_ok=True)
+# os.makedirs(result_dir, exist_ok=True)
+
+app = Flask(__name__)
+
+# Enable CORS for all routes with specific origin (i.e., the frontend's URL)
+CORS(app, resources={r"/*": {"origins": "https://h2e3.top"}})
+
+# Set up Ngrok tunnel
+ngrok.set_auth_token('2oeGUPKJRWRsm81p7cLeoEWYCAY_Gi1zfxM9dd9CJUTpkWZ7')
+public_url = ngrok.connect(5000).public_url
+print(f"Public URL: {public_url}")
+
+@app.route("/hello", methods=["GET"])
+def hello():
+    """Simple endpoint to check if the server is live."""
+    return "yes", 200
+
+@app.route("/list_images", methods=["GET"])
+def list_images():
+    """Lists all files in the body and cloth directories."""
+    body_images = os.listdir(body_image_dir)
+    cloth_images = os.listdir(cloth_image_dir)
+    return jsonify({"body_images": sorted(body_images), "cloth_images": sorted(cloth_images)})
+
+# Endpoint to serve a specific body image
+@app.route('/image/<filename>', methods=['GET'])
+def get_body_image(filename):
+    return send_from_directory(body_image_dir, filename, mimetype='image/jpeg')
+
+# Endpoint to serve a specific cloth image
+@app.route('/cloth/<filename>', methods=['GET'])
+def get_cloth_image(filename):
+    return send_from_directory(cloth_image_dir, filename, mimetype='image/jpeg')
+
+@app.route("/upload/<image_type>", methods=["POST"])
+def upload_image(image_type):
+    """Upload a new image."""
+    if image_type not in ["body", "cloth"]:
+        return jsonify({"error": "Invalid image type"}), 400
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    directory = body_image_dir if image_type == "body" else cloth_image_dir
+    file_path = os.path.join(directory, filename)
+    file.save(file_path)
+
+    return jsonify({"message": f"File '{filename}' uploaded successfully", "filename": filename})
+
+@app.route("/merge_images", methods=["POST"])
+def merge_images():
+    """Merges selected body and cloth images."""
+    data = request.json
+    body_image = data.get("body_image")
+    cloth_image = data.get("cloth_image")
+
+    # Define the directories for body and cloth images
+    body_image_dir = "/content/VIT_IDM/VIT_IDM/datasets/VITONHD/test/agnostic-v3.2"
+    cloth_image_dir = "/content/VIT_IDM/VIT_IDM/datasets/VITONHD/test/cloth-mask"
+    paired_txt_path = "/content/VIT_IDM/VIT_IDM/datasets/VITONHD/VITONHD_test_paired.txt"
+
+    # Check if the body and cloth images exist in their respective directories
+    body_image_path = os.path.join(body_image_dir, body_image)
+    cloth_image_path = os.path.join(cloth_image_dir, cloth_image)
+
+    if not os.path.exists(body_image_path):
+        return jsonify({"error": f"Body image '{body_image}' not found in {body_image_dir}"}), 404
+    if not os.path.exists(cloth_image_path):
+        return jsonify({"error": f"Cloth image '{cloth_image}' not found in {cloth_image_dir}"}), 404
+
+    # If both images exist, rewrite the txt file with the body and cloth image names
+    try:
+        with open(paired_txt_path, "w") as f:  # Open file in write mode to overwrite
+            f.write(f"{body_image} {cloth_image}\n")
+    except Exception as e:
+        return jsonify({"error": f"Failed to write to paired text file: {str(e)}"}), 500
+
+    # Simulate a merging process (replace with actual model code)
+    # result_path = os.path.join(result_dir, f"{body_image}")  # Placeholder result path
+
+    # Placeholder for actual merging logic. For now, just copying the body image to the result directory.
+    # shutil.copy(body_image_path, result_path)
     main()
+    return jsonify({"message": "Images merged successfully", "result_image": body_image})
+
+
+
+@app.route("/results/<stage>/<filename>", methods=["GET"])
+def get_result(stage,filename):
+    """Retrieve merged result image."""
+    result_path = os.path.join(result_dir, f"{stage}/result")
+    print(result_path)
+    if os.path.exists(result_path):
+        return send_from_directory(result_path, filename, mimetype='image/jpeg')
+    return jsonify({"error": "Result file not found"}), 404
+
+# Start the Flask app
+if __name__ == "__main__":
+    app.run(port=5000)
+
