@@ -223,11 +223,11 @@ Feel free to explore the code, contribute, or contact us if you have any questio
 --- 
 
 **Authors:**
-- Archana
+- Archana K.R.
 - B. Deb
 - N. Das
 - R. Pandey
 - R.V. Mishra
 
 **Institution:** Department of Computer Science and Engineering, **IIT Guwahati**, Assam, India  
-**Email:** \{archana, bitanuka.deb, nirban.das, rahul.pandey, ram.mishra\}@iitg.ac.in
+**Email:** \{r.archana, d.bitanuka, d.nirban, rahul.pandey, ram.mishra \}@iitg.ac.in
