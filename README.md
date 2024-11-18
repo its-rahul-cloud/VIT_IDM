@@ -200,10 +200,11 @@ We would like to acknowledge the authors of **Paint-by-Example**, whose work ser
 
 If you use this code in your research or application, please cite our work:
 
+
 ```
-@misc{archana2024enhancingvirtualtryon,
-      title={Enhancing Virtual Try-On Models for Industry Application: Addressing the Tattoo and Mole Preservation Challenge}, 
-      author={Archana, B. Deb, N. Das, R. Pandey, R.V. Mishra},
+@misc{choi2024improvingdiffusionmodelsauthentic,
+      title={Improving Diffusion Models for Authentic Virtual Try-on in the Wild}, 
+      author={Yisol Choi and Sangkyung Kwak and Kyungmin Lee and Hyungwon Choi and Jinwoo Shin},
       year={2024},
       eprint={2403.05139},
       archivePrefix={arXiv},
